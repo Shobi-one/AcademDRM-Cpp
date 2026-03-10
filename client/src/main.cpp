@@ -1,5 +1,7 @@
 #include <iostream>
+#include <limits>
 #include "drm/license_client.hpp"
+#include "drm/protected_logic.hpp"
 
 namespace {
 constexpr const char* GREEN = "\033[32m";
@@ -17,8 +19,11 @@ int main() {
 
     std::cout << GREEN << "License valid. Protected logic unlocked.\n" << RESET;
 
-    // Later this will trigger VM execution
-    // runProtectedLogic();
+    std::cout << "Press Enter to start the protected ASCII donut animation...";
+    std::cout.flush();
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    runProtectedLogic();
 
     return 0;
 }
