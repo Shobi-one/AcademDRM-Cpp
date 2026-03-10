@@ -1,6 +1,6 @@
-#include "license_client.hpp"
-#include "hardware_id.hpp"
-#include "crypto_verify.hpp"
+#include "drm/license_client.hpp"
+#include "drm/hardware_id.hpp"
+#include "drm/crypto_verify.hpp"
 
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>

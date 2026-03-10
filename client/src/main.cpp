@@ -1,5 +1,5 @@
 #include <iostream>
-#include "license_client.hpp"
+#include "drm/license_client.hpp"
 
 namespace {
 constexpr const char* GREEN = "\033[32m";
