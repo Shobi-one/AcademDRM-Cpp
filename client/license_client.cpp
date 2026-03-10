@@ -12,6 +12,12 @@
 
 using json = nlohmann::json;
 
+namespace {
+constexpr const char* GREEN = "\033[32m";
+constexpr const char* RED = "\033[31m";
+constexpr const char* RESET = "\033[0m";
+}
+
 static std::string canonicalizeJsonForSignature(const json& value) {
     if (!value.is_object()) {
         return value.dump();
@@ -85,7 +91,7 @@ bool validateLicense(const std::string& licenseKey) {
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK) {
-        std::cout << "HTTP request failed\n";
+        std::cout << RED << "[FAIL] HTTP request failed\n" << RESET;
         return false;
     }
 
@@ -93,12 +99,12 @@ bool validateLicense(const std::string& licenseKey) {
     try {
         jsonResp = json::parse(response);
     } catch (...) {
-        std::cout << "Invalid JSON response\n";
+        std::cout << RED << "[FAIL] Invalid JSON response\n" << RESET;
         return false;
     }
 
     if (!jsonResp.contains("data") || !jsonResp.contains("signature")) {
-        std::cout << "License server returned an error\n";
+        std::cout << RED << "[FAIL] License server returned an error\n" << RESET;
         return false;
     }
 
@@ -108,15 +114,21 @@ bool validateLicense(const std::string& licenseKey) {
     std::string payloadStr = canonicalizeJsonForSignature(payload);
 
     if (!verifySignature(payloadStr, signature)) {
-        std::cout << "Signature verification failed\n";
+        std::cout << RED << "[FAIL] Signature verification failed\n" << RESET;
         return false;
     }
 
-    if (payload["status"] != "valid")
+    if (payload["status"] != "valid") {
+        std::cout << RED << "[FAIL] License status is invalid\n" << RESET;
         return false;
+    }
 
-    if (payload["nonce"] != nonce)
+    if (payload["nonce"] != nonce) {
+        std::cout << RED << "[FAIL] Nonce check failed\n" << RESET;
         return false;
+    }
+
+    std::cout << GREEN << "[OK] License checks complete\n" << RESET;
 
     return true;
 }
