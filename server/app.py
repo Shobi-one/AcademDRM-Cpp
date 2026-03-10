@@ -1,22 +1,65 @@
 from flask import Flask, request, jsonify
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 import sqlite3
 import json
 import time
 import os
+from pathlib import Path
 
 app = Flask(__name__)
 
-DATABASE = "licenses.db"
-PRIVATE_KEY_FILE = "private.pem"
-LICENSE_EXPIRY_SECONDS = 7 * 24 * 60 * 60
+BASE_DIR = Path(__file__).resolve().parent
+REPO_ROOT = BASE_DIR.parent
 
-with open(PRIVATE_KEY_FILE, "rb") as f:
-    private_key = serialization.load_pem_private_key(f.read(), password=None)
+DATABASE = BASE_DIR / "licenses.db"
+PRIVATE_KEY_FILE = BASE_DIR / "private.pem"
+PUBLIC_KEY_EXPORT_FILE = REPO_ROOT / "public.pem"
+LICENSE_EXPIRY_SECONDS = 7 * 24 * 60 * 60
+STARTUP_BANNER = r"""
+         _____          _____  ______ __  __ _____  _____  __  __         _____ _____  _____     _____ ______ _______      ________ _____
+     /\   / ____|   /\   |  __ \|  ____|  \/  |  __ \|  __ \|  \/  |       / ____|  __ \|  __ \   / ____|  ____|  __ \ \    / /  ____|  __ \
+    /  \ | |       /  \  | |  | | |__  | \  / | |  | | |__) | \  / |______| |    | |__) | |__) | | (___ | |__  | |__) \ \  / /| |__  | |__) |
+   / /\ \| |      / /\ \ | |  | |  __| | |\/| | |  | |  _  /| |\/| |______| |    |  ___/|  ___/   \___ \|  __| |  _  / \ \/ / |  __| |  _  /
+  / ____ \ |____ / ____ \| |__| | |____| |  | | |__| | | \ \| |  | |      | |____| |    | |       ____) | |____| | \ \  \  /  | |____| | \ \
+ /_/    \_\_____/_/    \_\_____/|______|_|  |_|_____/|_|  \_\_|  |_|       \_____|_|    |_|      |_____/|______|_|  \_\  \/   |______|_|  \_\
+"""
+
+def load_or_create_private_key():
+    if not PRIVATE_KEY_FILE.exists():
+        generated_private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+        )
+        pem = generated_private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        with open(PRIVATE_KEY_FILE, "wb") as key_file:
+            key_file.write(pem)
+        print(f"[setup] Generated new private key: {PRIVATE_KEY_FILE}")
+
+    with open(PRIVATE_KEY_FILE, "rb") as f:
+        return serialization.load_pem_private_key(f.read(), password=None)
+
+def export_public_key(private_key):
+    public_key = private_key.public_key()
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+    with open(PUBLIC_KEY_EXPORT_FILE, "wb") as key_file:
+        key_file.write(public_pem)
+
+    print(f"[setup] Exported public key: {PUBLIC_KEY_EXPORT_FILE}")
+
+private_key = load_or_create_private_key()
+export_public_key(private_key)
 
 def init_db():
-    if not os.path.exists(DATABASE):
+    if not DATABASE.exists():
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
         c.execute("""
@@ -32,6 +75,7 @@ def init_db():
                   ("TEST-1234-ABCD", "", int(time.time()) + LICENSE_EXPIRY_SECONDS, 1))
         conn.commit()
         conn.close()
+        print(f"[setup] Created new database: {DATABASE} (seeded TEST-1234-ABCD)")
 
 init_db()
 
@@ -53,13 +97,17 @@ def bind_hardware(license_key, hardware_id):
     conn.close()
 
 def sign_payload(payload: dict) -> str:
-    message = json.dumps(payload, sort_keys=True).encode()
+    message = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     signature = private_key.sign(
         message,
         padding.PKCS1v15(),
         hashes.SHA256()
     )
     return signature.hex()
+
+@app.route("/", methods=["GET"])
+def health():
+    return jsonify({"status": "ok", "service": "AcademDRM license server"})
 
 @app.route("/validate", methods=["POST"])
 def validate():
@@ -103,4 +151,5 @@ def validate():
     })
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    print(STARTUP_BANNER)
+    app.run(host="127.0.0.1", port=5000)

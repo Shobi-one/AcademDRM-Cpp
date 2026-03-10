@@ -1,0 +1,23 @@
+# C++ build outputs
+*.obj
+*.o
+*.exe
+*.exp
+*.lib
+*.pdb
+
+# Local secrets / runtime data
+*.pem
+*.key
+*.db
+server/licenses.db
+server/private.pem
+public.pem
+private.pem
+
+# Local editor-only settings
+.vscode/c_cpp_properties.json
+.vscode/tasks.json
+
+# Local dependency tree (keep vcpkg.json tracked)
+vcpkg/
