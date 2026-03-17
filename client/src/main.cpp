@@ -125,6 +125,7 @@ private:
         std::cout << "7) Run DRM startup diagnostics (anti-debug + integrity)\n";
         std::cout << "8) Run VM pipeline diagnostics (DSL -> bytecode -> decrypt -> execute)\n";
         std::cout << "9) Run all local diagnostics\n";
+        std::cout << "10) Run full DRM journey (startup -> HWID -> license -> unlock)\n";
         std::cout << "0) Exit\n";
         std::cout << "Select an option: ";
     }
@@ -165,6 +166,9 @@ private:
                 return false;
             case 9:
                 runAllDiagnostics();
+                return false;
+            case 10:
+                runFullDrmJourney();
                 return false;
             case 0:
                 std::cout << "Exiting test console.\n";
@@ -297,6 +301,53 @@ private:
             std::cout << GREEN << "All local diagnostics passed.\n" << RESET;
         } else {
             std::cout << RED << "One or more diagnostics failed.\n" << RESET;
+        }
+    }
+
+    void runFullDrmJourney() const {
+        std::cout << "\n" << CYAN << "==== Full DRM Journey Test ====" << RESET << "\n";
+        std::cout << "Using test key: TEST-1234-ABCD\n";
+
+        const bool startup_ok = runStartupDiagnostics();
+        const std::string hardware_id = getHardwareID();
+        const bool hardware_ok = !hardware_id.empty();
+        bool license_ok = false;
+
+        std::cout << "\n" << CYAN << "[DRM Flow] Hardware Binding" << RESET << "\n";
+        std::cout << "- Hardware ID: " << (hardware_ok ? hardware_id : std::string("<empty>")) << "\n";
+
+        if (startup_ok && hardware_ok) {
+            std::cout << "\n" << CYAN << "[DRM Flow] License Validation" << RESET << "\n";
+            license_ok = validateLicense("TEST-1234-ABCD");
+        }
+
+        const bool unlock_ok = startup_ok && hardware_ok && license_ok;
+
+        std::cout << "\n" << CYAN << "[DRM Flow] Summary" << RESET << "\n";
+        std::cout << "- Startup protections: " << (startup_ok ? GREEN : RED)
+            << (startup_ok ? "PASS" : "FAIL") << RESET << "\n";
+        std::cout << "- Hardware fingerprint: " << (hardware_ok ? GREEN : RED)
+            << (hardware_ok ? "PASS" : "FAIL") << RESET << "\n";
+        std::cout << "- License handshake: " << (license_ok ? GREEN : RED)
+            << (license_ok ? "PASS" : "FAIL") << RESET << "\n";
+        std::cout << "- Content unlock gate: " << (unlock_ok ? GREEN : RED)
+            << (unlock_ok ? "PASS" : "FAIL") << RESET << "\n";
+
+        if (!unlock_ok) {
+            std::cout << RED << "Full DRM journey failed before protected execution.\n" << RESET;
+            return;
+        }
+
+        std::string choice;
+        if (!readLine("Run protected logic now? (y/N): ", choice)) {
+            return;
+        }
+
+        if (choice == "y" || choice == "Y") {
+            std::cout << GREEN << "DRM checks passed. Launching protected logic...\n" << RESET;
+            runProtectedFeature();
+        } else {
+            std::cout << GREEN << "DRM checks passed. Protected logic launch skipped.\n" << RESET;
         }
     }
 };
