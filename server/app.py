@@ -12,8 +12,8 @@ app = Flask(__name__)
 BASE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BASE_DIR.parent
 
-DATABASE = BASE_DIR / "licenses.db"
-PRIVATE_KEY_FILE = BASE_DIR / "private.pem"
+DATABASE = BASE_DIR / "data" / "licenses.db"
+PRIVATE_KEY_FILE = BASE_DIR / "keys" / "private.pem"
 PUBLIC_KEY_EXPORT_FILE = REPO_ROOT / "public.pem"
 LICENSE_EXPIRY_SECONDS = 7 * 24 * 60 * 60
 STARTUP_BANNER = r"""
@@ -26,6 +26,7 @@ STARTUP_BANNER = r"""
 """
 
 def load_or_create_private_key():
+    PRIVATE_KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
     if not PRIVATE_KEY_FILE.exists():
         generated_private_key = rsa.generate_private_key(
             public_exponent=65537,
@@ -59,6 +60,7 @@ private_key = load_or_create_private_key()
 export_public_key(private_key)
 
 def init_db():
+    DATABASE.parent.mkdir(parents=True, exist_ok=True)
     if not DATABASE.exists():
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()

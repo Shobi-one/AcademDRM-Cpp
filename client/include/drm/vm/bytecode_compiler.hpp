@@ -1,6 +1,6 @@
 #pragma once
 
-#include "drm/virtual_machine.hpp"
+#include "drm/vm/virtual_machine.hpp"
 
 #include <cctype>
 #include <cstdlib>

@@ -12,8 +12,16 @@
 *.db
 server/licenses.db
 server/private.pem
+server/data/licenses.db
+server/keys/private.pem
 public.pem
 private.pem
+
+# Runtime DLL copies from local builds
+libcurl.dll
+libcrypto-3-x64.dll
+libssl-3-x64.dll
+zlib1.dll
 
 # Local editor-only settings
 .vscode/c_cpp_properties.json

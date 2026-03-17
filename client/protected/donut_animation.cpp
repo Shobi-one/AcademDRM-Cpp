@@ -1,8 +1,8 @@
 #include "drm/protected_logic.hpp"
-#include "drm/bytecode_compiler.hpp"
+#include "drm/vm/bytecode_compiler.hpp"
 #include "drm/hardware_id.hpp"
-#include "drm/startup_protections.hpp"
-#include "drm/virtual_machine.hpp"
+#include "drm/security/startup_protections.hpp"
+#include "drm/vm/virtual_machine.hpp"
 
 #include <cmath>
 #include <chrono>

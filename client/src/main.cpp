@@ -1,18 +1,95 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <vector>
 
+#include "drm/vm/bytecode_compiler.hpp"
 #include "drm/license_client.hpp"
 #include "drm/crypto_verify.hpp"
 #include "drm/hardware_id.hpp"
 #include "drm/protected_logic.hpp"
-#include "drm/startup_protections.hpp"
+#include "drm/security/startup_protections.hpp"
+#include "drm/vm/virtual_machine.hpp"
 
 namespace {
 constexpr const char* GREEN = "\033[32m";
 constexpr const char* RED = "\033[31m";
 constexpr const char* CYAN = "\033[36m";
+constexpr const char* YELLOW = "\033[33m";
 constexpr const char* RESET = "\033[0m";
+
+bool runStartupDiagnostics() {
+    drm::security::AntiDebugDetector anti_debug;
+    drm::security::TextSectionIntegrityChecker integrity_checker;
+
+    const bool debugger_detected = anti_debug.detectDebugger();
+    const bool text_integrity_ok = integrity_checker.verifyCurrentModuleTextIntegrity();
+
+    std::cout << "\n" << CYAN << "[DRM Diagnostics] Startup Protections" << RESET << "\n";
+    const char* anti_color = debugger_detected ? RED : GREEN;
+    const char* anti_status = debugger_detected ? "DETECTED" : "CLEAR";
+    std::cout << "- Anti-debug detector: " << anti_color << anti_status << RESET << "\n";
+
+    const char* integrity_color = text_integrity_ok ? GREEN : RED;
+    const char* integrity_status = text_integrity_ok ? "PASS" : "FAIL";
+    std::cout << "- .text integrity check (SHA-256): " << integrity_color << integrity_status << RESET << "\n";
+
+    if (debugger_detected || !text_integrity_ok) {
+        std::cout << YELLOW << "Startup protections would block execution under this environment." << RESET << "\n";
+        return false;
+    }
+
+    return true;
+}
+
+bool runVmPipelineSelfTest() {
+    static const std::string script =
+        "PUSH 40\n"
+        "PUSH 2\n"
+        "ADD\n"
+        "STORE r0\n"
+        "LOAD r0\n"
+        "PUSH 42\n"
+        "CMP_EQ\n"
+        "JMP_IF_FALSE fail\n"
+        "PUSH 1337\n"
+        "CALL host0\n"
+        "HALT\n"
+        "fail:\n"
+        "PUSH -1\n"
+        "CALL host0\n"
+        "HALT\n";
+
+    std::cout << "\n" << CYAN << "[VM Diagnostics] Compiler -> Encrypt -> Decrypt -> Execute" << RESET << "\n";
+
+    try {
+        const drm::vm::BytecodeProgram bytecode = drm::vm::ScriptBytecodeCompiler::compile(script);
+        const std::vector<std::uint8_t> key = { 0x21, 0x44, 0x52, 0x4D, 0x13, 0xAF, 0x90, 0x55, 0x1C, 0xE2 };
+        const drm::vm::EncryptedBytecodeProgram encrypted =
+            drm::vm::BytecodeEncryption::encrypt(bytecode, key, drm::vm::EncryptionAlgorithm::XOR);
+        const drm::vm::BytecodeProgram decrypted = drm::vm::BytecodeEncryption::decrypt(encrypted, key);
+
+        drm::vm::VirtualMachine vm(2);
+        double result = 0.0;
+        vm.setHostCallbacks({
+            [&result](drm::vm::VirtualMachine& local_vm) {
+                result = local_vm.pop();
+            }
+        });
+        vm.loadBytecodeProgram(decrypted);
+        vm.run();
+
+        const bool pass = (result == 1337.0);
+        const char* vm_color = pass ? GREEN : RED;
+        const char* vm_status = pass ? "PASS" : "FAIL";
+        std::cout << "- VM pipeline result: "
+              << vm_color << vm_status << RESET << " (value=" << result << ")\n";
+        return pass;
+    } catch (const std::exception& ex) {
+        std::cout << RED << "- VM pipeline error: " << ex.what() << RESET << "\n";
+        return false;
+    }
+}
 
 class ConsoleApp {
 public:
@@ -45,6 +122,9 @@ private:
         std::cout << "4) Verify payload/signature manually\n";
         std::cout << "5) Run protected logic (donut animation)\n";
         std::cout << "6) Validate custom license and run protected logic\n";
+        std::cout << "7) Run DRM startup diagnostics (anti-debug + integrity)\n";
+        std::cout << "8) Run VM pipeline diagnostics (DSL -> bytecode -> decrypt -> execute)\n";
+        std::cout << "9) Run all local diagnostics\n";
         std::cout << "0) Exit\n";
         std::cout << "Select an option: ";
     }
@@ -76,6 +156,15 @@ private:
                 return false;
             case 6:
                 runValidateAndProtected();
+                return false;
+            case 7:
+                runDrmDiagnostics();
+                return false;
+            case 8:
+                runVmDiagnostics();
+                return false;
+            case 9:
+                runAllDiagnostics();
                 return false;
             case 0:
                 std::cout << "Exiting test console.\n";
@@ -169,6 +258,46 @@ private:
 
         std::cout << GREEN << "License valid. Protected logic unlocked.\n" << RESET;
         runProtectedFeature();
+    }
+
+    void runDrmDiagnostics() const {
+        const bool pass = runStartupDiagnostics();
+        if (pass) {
+            std::cout << GREEN << "[PASS] DRM startup diagnostics succeeded\n" << RESET;
+        } else {
+            std::cout << RED << "[FAIL] DRM startup diagnostics failed\n" << RESET;
+        }
+    }
+
+    void runVmDiagnostics() const {
+        const bool pass = runVmPipelineSelfTest();
+        if (pass) {
+            std::cout << GREEN << "[PASS] VM diagnostics succeeded\n" << RESET;
+        } else {
+            std::cout << RED << "[FAIL] VM diagnostics failed\n" << RESET;
+        }
+    }
+
+    void runAllDiagnostics() const {
+        std::cout << "\n" << CYAN << "==== Full Local Diagnostics ====" << RESET << "\n";
+        runShowHardwareId();
+
+        const bool drm_ok = runStartupDiagnostics();
+        const bool vm_ok = runVmPipelineSelfTest();
+
+        std::cout << "\n";
+        const char* drm_color = drm_ok ? GREEN : RED;
+        const char* drm_status = drm_ok ? "PASS" : "FAIL";
+        const char* vm_color = vm_ok ? GREEN : RED;
+        const char* vm_status = vm_ok ? "PASS" : "FAIL";
+        std::cout << "Summary: DRM=" << drm_color << drm_status << RESET
+              << ", VM=" << vm_color << vm_status << RESET << "\n";
+
+        if (drm_ok && vm_ok) {
+            std::cout << GREEN << "All local diagnostics passed.\n" << RESET;
+        } else {
+            std::cout << RED << "One or more diagnostics failed.\n" << RESET;
+        }
     }
 };
 }
