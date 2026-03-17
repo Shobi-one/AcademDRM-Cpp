@@ -23,6 +23,9 @@ libcrypto-3-x64.dll
 libssl-3-x64.dll
 zlib1.dll
 
+# CMake out-of-source build artifacts
+build/
+
 # Local editor-only settings
 .vscode/c_cpp_properties.json
 .vscode/tasks.json
