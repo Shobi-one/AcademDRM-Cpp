@@ -1,6 +1,7 @@
 #include "drm/license_client.hpp"
 #include "drm/hardware_id.hpp"
 #include "drm/crypto_verify.hpp"
+#include "drm/string_obfuscation.hpp"
 
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
@@ -74,14 +75,22 @@ bool validateLicense(const std::string& licenseKey) {
 
     std::string response;
 
-    curl_easy_setopt(curl, CURLOPT_URL, "http://127.0.0.1:5000/validate");
+    const std::string endpoint = drm::obf::decode(
+        { 0x35, 0x1E, 0x03, 0xF4, 0xAB, 0xB1, 0x84, 0x89, 0xF7, 0xE5, 0xF1, 0xDC, 0xD7, 0x36, 0x3D, 0x11, 0x17, 0x0F, 0x77, 0x64, 0x51, 0x41, 0x0D, 0xE9, 0xF9, 0xCB, 0xCB, 0xDD, 0xBD, 0xB3 },
+        0x5D
+    );
+    curl_easy_setopt(curl, CURLOPT_URL, endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
     std::string body = request.dump();
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
 
     struct curl_slist* headers = NULL;
-    headers = curl_slist_append(headers, "Content-Type: application/json");
+    const std::string content_type = drm::obf::decode(
+        { 0x1E, 0x05, 0x19, 0xF0, 0xF4, 0xF0, 0xDF, 0x95, 0x91, 0xAB, 0xAF, 0x89, 0xC3, 0x26, 0x72, 0x50, 0x5D, 0x56, 0x2E, 0x37, 0x00, 0x1A, 0x12, 0xE7, 0xFB, 0x8D, 0xC5, 0xCF, 0xA6, 0xB8 },
+        0x5D
+    );
+    headers = curl_slist_append(headers, content_type.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
