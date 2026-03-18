@@ -2,6 +2,7 @@
 #include <limits>
 #include <string>
 #include <vector>
+#include <cstdlib>
 
 #include "drm/vm/bytecode_compiler.hpp"
 #include "drm/license_client.hpp"
@@ -94,18 +95,31 @@ bool runVmPipelineSelfTest() {
 class ConsoleApp {
 public:
     int run() {
-        while (true) {
-            printMenu();
+        printMenu();
 
-            int choice = -1;
-            if (!(std::cin >> choice)) {
-                std::cin.clear();
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                std::cout << RED << "Invalid input. Enter a number from the menu.\n" << RESET;
+        while (true) {
+            std::string input;
+            if (!readLine("Select option (m=menu, c=clear, 0=exit): ", input)) {
+                std::cout << "\nInput stream closed. Exiting test console.\n";
+                return 0;
+            }
+
+            if (input == "m" || input == "M") {
+                printMenu();
                 continue;
             }
 
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            if (input == "c" || input == "C") {
+                clearConsole();
+                printMenu();
+                continue;
+            }
+
+            int choice = -1;
+            if (!parseChoice(input, choice)) {
+                std::cout << RED << "Invalid input. Enter a number, or 'm' to show menu.\n" << RESET;
+                continue;
+            }
 
             if (dispatchChoice(choice)) {
                 return 0;
@@ -127,7 +141,6 @@ private:
         std::cout << "9) Run all local diagnostics\n";
         std::cout << "10) Run full DRM journey (startup -> HWID -> license -> unlock)\n";
         std::cout << "0) Exit\n";
-        std::cout << "Select an option: ";
     }
 
     static bool readLine(const std::string& prompt, std::string& out) {
@@ -136,6 +149,36 @@ private:
             return false;
         }
         return true;
+    }
+
+    static void clearConsole() {
+#if defined(_WIN32)
+        std::system("cls");
+#else
+        std::cout << "\033[2J\033[H";
+#endif
+    }
+
+    static bool parseChoice(const std::string& input, int& choice) {
+        const std::size_t first = input.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos) {
+            return false;
+        }
+
+        const std::size_t last = input.find_last_not_of(" \t\r\n");
+        const std::string trimmed = input.substr(first, last - first + 1);
+
+        try {
+            std::size_t consumed = 0;
+            const int value = std::stoi(trimmed, &consumed);
+            if (consumed != trimmed.size()) {
+                return false;
+            }
+            choice = value;
+            return true;
+        } catch (const std::exception&) {
+            return false;
+        }
     }
 
     bool dispatchChoice(int choice) {
