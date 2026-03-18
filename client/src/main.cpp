@@ -19,6 +19,19 @@ constexpr const char* CYAN = "\033[36m";
 constexpr const char* YELLOW = "\033[33m";
 constexpr const char* RESET = "\033[0m";
 
+void printDrmHeader() {
+    std::cout << CYAN
+              << R"(           _____          _____  ______ __  __ _____  _____  __  __         _____ _____  _____     _____ _      _____ ______ _   _ _______
+     /\   / ____|   /\   |  __ \|  ____|  \/  |  __ \|  __ \|  \/  |       / ____|  __ \|  __ \   / ____| |    |_   _|  ____| \ | |__   __|
+    /  \ | |       /  \  | |  | | |__  | \  / | |  | | |__) | \  / |______| |    | |__) | |__) | | |    | |      | | | |__  |  \| |  | |
+   / /\ \| |      / /\ \ | |  | |  __| | |\/| | |  | |  _  /| |\/| |______| |    |  ___/|  ___/  | |    | |      | | |  __| | . ` |  | |
+  / ____ \ |____ / ____ \| |__| | |____| |  | | |__| | | \ \| |  | |      | |____| |    | |      | |____| |____ _| |_| |____| |\  |  | |
+ /_/    \_\_____/_/    \_\_____/|______|_|  |_|_____/|_|  \_\_|  |_|       \_____|_|    |_|       \_____|______|_____|______|_| \_|  |_|
+                                                                                                                                            
+                                                                                                                                            )"
+              << RESET << "\n";
+}
+
 bool runStartupDiagnostics() {
     drm::security::AntiDebugDetector anti_debug;
     drm::security::TextSectionIntegrityChecker integrity_checker;
@@ -95,6 +108,7 @@ bool runVmPipelineSelfTest() {
 class ConsoleApp {
 public:
     int run() {
+        printDrmHeader();
         printMenu();
 
         while (true) {
