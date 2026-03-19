@@ -13,6 +13,26 @@
 #include <fstream>
 #include <vector>
 
+namespace {
+FILE* openPublicKeyFile() {
+    const char* candidates[] = {
+        "public.pem",
+        "../public.pem",
+        "../../public.pem",
+        "../../../public.pem"
+    };
+
+    for (const char* path : candidates) {
+        FILE* file = fopen(path, "r");
+        if (file) {
+            return file;
+        }
+    }
+
+    return nullptr;
+}
+}
+
 std::vector<unsigned char> hexToBytes(const std::string& hex) {
     std::vector<unsigned char> bytes;
 
@@ -26,7 +46,7 @@ std::vector<unsigned char> hexToBytes(const std::string& hex) {
 }
 
 bool verifySignature(const std::string& data, const std::string& hexSignature) {
-    FILE* pubFile = fopen("public.pem", "r");
+    FILE* pubFile = openPublicKeyFile();
     if (!pubFile) return false;
 
     RSA* rsa = PEM_read_RSA_PUBKEY(pubFile, NULL, NULL, NULL);
